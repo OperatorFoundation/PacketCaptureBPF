@@ -1,0 +1,16 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "PacketStream",
+        "repositoryURL": "https://github.com/OperatorFoundation/PacketStream.git",
+        "state": {
+          "branch": null,
+          "revision": "7a2fccc603cbc773db5e97fcd276ec75c7d380b2",
+          "version": "0.0.1"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
