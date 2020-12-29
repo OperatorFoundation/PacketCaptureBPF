@@ -2,6 +2,33 @@
   "object": {
     "pins": [
       {
+        "package": "Bits",
+        "repositoryURL": "https://github.com/OperatorFoundation/Bits.git",
+        "state": {
+          "branch": null,
+          "revision": "e53451b5858a8a2d72f51d3ca22761643adf64d3",
+          "version": "1.0.6"
+        }
+      },
+      {
+        "package": "Datable",
+        "repositoryURL": "https://github.com/OperatorFoundation/Datable.git",
+        "state": {
+          "branch": null,
+          "revision": "808ab1b2c021be3d2950ec2c2894cd48d532d592",
+          "version": "3.0.3"
+        }
+      },
+      {
+        "package": "InternetProtocols",
+        "repositoryURL": "https://github.com/OperatorFoundation/InternetProtocols.git",
+        "state": {
+          "branch": null,
+          "revision": "8bd874cec7172fc441cf639108787725957e82c0",
+          "version": "1.1.1"
+        }
+      },
+      {
         "package": "PacketStream",
         "repositoryURL": "https://github.com/OperatorFoundation/PacketStream.git",
         "state": {

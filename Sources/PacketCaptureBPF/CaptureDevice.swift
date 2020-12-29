@@ -7,24 +7,40 @@
 
 import Foundation
 import PacketStream
+import Datable
 
 
 
 public class CaptureDevice: PacketStream
 {
     // add function to close things and tidy up when finished
+    // add fd device to read packets from
     
     public init?(interface: String)
     {
-        // accept an interface name, connect interface to a bpf device
-        // use the bpf device when nextPacket() is called to read a packet from the interface
+        
+        // libpcap mentions installing some scripts to set permissions so bpf works, will we need to do that? See line 15 in libpcap/doc/README.macos
+        
+        // accept an interface name
+        // does the interface exist and is it up
+        // find next available/free bpf device
+        // open bpf device
+        // set buffer size
+        // bind interface to the bpf device
+        // enable promiscious mode
+        // return/struct the bpf device fd so that it can be used in nextPacket()
+        
+        
+        
         
         // libpcap has useful example programs, /libpcap/testprogs
+        // https://github.com/the-tcpdump-group/libpcap
         
         /*
          https://medium.com/@c_bata_/how-to-write-cross-platform-packet-capture-using-raw-socket-and-bpf-bab3b614bc03
          https://github.com/c-bata/xpcap
          https://github.com/c-bata/xpcap/blob/master/sniffer.c
+         (xpcap compiles and runs on MacOS 10.15 with no issue)
          
          Find available BPF devices by checking sequentially from bpf0 to bpfxxx.
              int pick_bpf_device(Sniffer *sniffer)
