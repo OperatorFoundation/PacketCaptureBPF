@@ -1,15 +1,277 @@
+//
+//  CaptureDevice.swift
+//  PacketCaptureBPF
+//
+//  Created by Jeremy Zunker on 12/28/20.
+//
+
 import Foundation
 import PacketStream
 
+
+
 public class CaptureDevice: PacketStream
 {
+    // add function to close things and tidy up when finished
+    
     public init?(interface: String)
     {
+        // accept an interface name, connect interface to a bpf device
+        // use the bpf device when nextPacket() is called to read a packet from the interface
+        
+        // libpcap has useful example programs, /libpcap/testprogs
+        
+        /*
+         https://medium.com/@c_bata_/how-to-write-cross-platform-packet-capture-using-raw-socket-and-bpf-bab3b614bc03
+         https://github.com/c-bata/xpcap
+         https://github.com/c-bata/xpcap/blob/master/sniffer.c
+         
+         Find available BPF devices by checking sequentially from bpf0 to bpfxxx.
+             int pick_bpf_device(Sniffer *sniffer)
+             {
+                 char dev[11] = {0};
+                 for (int i = 0; i < 99; ++i) {
+                     sprintf(dev, "/dev/bpf%i", i);
+                     sniffer->fd = open(dev, O_RDWR);
+                     if (sniffer->fd != -1) {
+                         strcpy(sniffer->device, dev);
+                         return 0;
+                     }
+                 }
+                 return -1;
+             }
+         
+         
+         After finding a free bpf device, the following operations are required to read ethernet frames. See new_bpf_sniffer
+         
+         Open a bpf device.
+            fd = open(params.device, O_RDWR)
+         Set buffer length or get buffer length.
+            ioctl(fd, BIOCSBLEN, &params.buf_len) : set buffer length
+            ioctl(fd, BIOCGBLEN, &params.buf_len) : get buffer length
+         Bind a BPF device into the interface.
+            ioctl(fd, BIOCSETIF, &if_req)
+         Enable promiscuous mode.
+            ioctl(fd, BIOCPROMISC, NULL)
+ 
+         After that you need to use `read(2)` because this is a device file, not a socket descriptor. See read_new_packets
+         
+             memset(sniffer->buffer, 0, sniffer->buf_len);
+             ssize_t len;
+             sniffer->read_bytes_consumed = 0;
+             if ((len = read(sniffer->fd, sniffer->buffer, sniffer->buf_len)) == -1){
+                 sniffer->last_read_len = 0;
+                 perror("read:");
+                 return -1;
+             }
+             sniffer->last_read_len = (unsigned int) len;
+             return (int) len;
+         
+         The returned value of `read(2)` is not just an Ethernet frame, rather the Ethernet frame is wrapped in a BPF packet (header).
+         
+         When parsing the BPF header, since the data length is on, we will repeat the parsing by finding the position of the next BPF packet by using it.
+         
+             int parse_bpf_packets(Sniffer *sniffer, CapturedInfo *info)
+             {
+                 if (sniffer->read_bytes_consumed + sizeof(sniffer->buffer) >= sniffer->last_read_len) {
+                     return 0;
+                 }
+
+                 info->bpf_hdr = (struct bpf_hdr*)((long)sniffer->buffer + (long)sniffer->read_bytes_consumed);
+                 info->data = sniffer->buffer + (long)sniffer->read_bytes_consumed + info->bpf_hdr->bh_hdrlen;
+                 sniffer->read_bytes_consumed += BPF_WORDALIGN(info->bpf_hdr->bh_hdrlen + info->bpf_hdr->bh_caplen);
+                 return info->bpf_hdr->bh_datalen;
+             }
+         
+         Seems that because we're using read(2) that the header will be (see bpf man page):
+             struct bpf_hdr {
+                 struct timeval  bh_tstamp;        /* time stamp */
+                 uint32_t        bh_caplen;        /* length of captured portion */
+                 uint32_t        bh_datalen;       /* original length of packet */
+                 u_short         bh_hdrlen;        /* length of bpf header (this struct plus alignment padding) */
+             };
+
+         
+         
+         
+         
+         <<<<<< Excerpt from bpf man page >>>>>>
+         
+         BPF(4)                   BSD Kernel Interfaces Manual                   BPF(4)
+
+         NAME
+              bpf -- Berkeley Packet Filter
+
+         SYNOPSIS
+              pseudo-device bpf
+
+         DESCRIPTION
+              The Berkeley Packet Filter provides a raw interface to data link layers in a protocol independent fashion.  All packets on the network, even those destined for other hosts, are accessible through this mechanism.
+
+              The packet filter appears as a character special device, /dev/bpf0, /dev/bpf1, etc.  After opening the device, the file descriptor must be bound to a specific network interface with the BIOCSETIF ioctl.  A given interface can be shared by multiple listeners, and the filter underlying each descriptor will see an identical packet stream.
+
+              A separate device file is required for each minor device.  If a file is in use, the open will fail and errno will be set to EBUSY.
+
+              Associated with each open instance of a bpf file is a user-settable packet filter.  Whenever a packet is received by an interface, all file descriptors listening on that interface apply their filter.  Each descriptor that accepts the packet receives its own copy.
+
+              Reads from these files return the next group of packets that have matched the filter.  To improve performance, the buffer passed to read must be the same size as the buffers used internally by bpf.  This size is returned by the BIOCGBLEN ioctl (see below), and can be set with BIOCSBLEN.  Note that an individual packet larger than this size is necessarily truncated.
+
+              A packet can be sent out on the network by writing to a bpf file descriptor.  The writes are unbuffered, meaning only one packet can be processed per write.  Currently, only writes to Ethernets and SLIP links are supported.
+
+              When the last minor device is opened, an additional minor device is created on demand. The maximum number of devices that can be created is controlled by the sysctl debug.bpf_maxdevices.
+
+         IOCTLS
+              The ioctl(2) command codes below are defined in <net/bpf.h>.  All commands require these includes:
+
+                   #include <sys/types.h>
+                   #include <sys/time.h>
+                   #include <sys/ioctl.h>
+                   #include <net/bpf.h>
+
+              Additionally, BIOCGETIF and BIOCSETIF require <sys/socket.h> and <net/if.h>.
+
+              The (third) argument to ioctl(2) should be a pointer to the type indicated.
+
+              BIOCGBLEN      (u_int) Returns the required buffer length for reads on bpf files.
+
+              BIOCSBLEN      (u_int) Sets the buffer length for reads on bpf files.  The buffer must be set before the file is attached to an interface with BIOCSETIF.  If the requested buffer size cannot be accommodated, the closest allowable size will be set and returned in the argument.  A read call will result in EINVAL if it is passed a buffer that is not this size.
+
+              BIOCGDLT       (u_int) Returns the type of the data link layer underlying the attached interface.  EINVAL is returned if no interface has been specified.  The device types, prefixed with ``DLT_'', are defined in <net/bpf.h>.
+
+              BIOCGDLTLIST   (struct bpf_dltlist) Returns an array of the available types of the data link layer underlying the attached interface:
+
+                   struct bpf_dltlist {
+                        u_int bfl_len;
+                        u_int *bfl_list;
+                   };
+
+                   The available types are returned in the array pointed to by the bfl_list field while their length in u_int is supplied to the bfl_len field.  ENOMEM is returned if there is not enough buffer space and EFAULT is returned if a bad address is encountered.  The bfl_len field is modified on return to indicate the actual length in u_int of the array returned.  If bfl_list is NULL, the bfl_len field is set to indicate the required length of an array in u_int.
+
+              BIOCSDLT       (u_int) Changes the type of the data link layer underlying the attached interface.  EINVAL is returned if no interface has been specified or the specified type is not available for the interface.
+
+              BIOCPROMISC    Forces the interface into promiscuous mode.  All packets, not just those destined for the local host, are processed.  Since more than one file can be listening on a given interface, a listener that opened its interface non-promiscuously may receive packets promiscuously.  This problem can be remedied with an appropriate filter.
+
+                             The interface remains in promiscuous mode until all files listening promiscuously are closed.
+
+              BIOCFLUSH      Flushes the buffer of incoming packets, and resets the statistics that are returned by BIOCGSTATS.
+
+              BIOCGETIF      (struct ifreq) Returns the name of the hardware interface that the file is listening on.  The name is returned in the ifr_name field of the ifreq structure.  All other fields are undefined.
+
+              BIOCSETIF      (struct ifreq) Sets the hardware interface associated with the file.  This command must be performed before any packets can be read.  The device is indicated by name using the ifr_name field of the ifreq structure.  Additionally, performs the actions of BIOCFLUSH.
+
+              BIOCSRTIMEOUT
+
+              BIOCGRTIMEOUT  (struct timeval) Sets or gets the read timeout parameter.  The argument specifies the length of time to wait before timing out on a read request.  This parameter is initialized to zero by open(2), indicating no timeout.
+
+              BIOCGSTATS     (struct bpf_stat) Returns the following structure of packet statistics:
+
+                             struct bpf_stat {
+                                  u_int bs_recv;    /* number of packets received */
+                                  u_int bs_drop;    /* number of packets dropped */
+                             };
+
+                             The fields are:
+
+                                  bs_recv the number of packets received by the descriptor since opened or reset (including any buffered since the last read call); and
+
+                                  bs_drop the number of packets which were accepted by the filter but dropped by the kernel because of buffer overflows (i.e., the application's reads aren't keeping up with the packet traffic).
+
+              BIOCIMMEDIATE  (u_int) Enables or disables ``immediate mode'', based on the truth value of the argument.  When immediate mode is enabled, reads return immediately upon packet reception.  Otherwise, a read will block until either the kernel buffer becomes full or a timeout occurs.  This is useful for programs like rarpd(8) which must respond to messages in real time.  The default for a new file is off.
+
+              BIOCSETF
+
+              BIOCSETFNR     (struct bpf_program) Sets the filter program used by the kernel to discard uninteresting packets.  An array of instructions and its length is passed in using the following structure:
+
+                            struct bpf_program {
+                                  u_int bf_len;
+                                  struct bpf_insn *bf_insns;
+                            };
+
+                             The filter program is pointed to by the bf_insns field while its length in units of `struct bpf_insn' is given by the bf_len field.  Also, the actions of BIOCFLUSH are performed.  See section FILTER MACHINE for an explanation of the filter language. The only difference between BIOCSETF and BIOCSETFNR is BIOCSETF performs the actions of BIOCFLUSH while BIOCSETFNR does not.
+
+              BIOCVERSION    (struct bpf_version) Returns the major and minor version numbers of the filter language currently recognized by the kernel.
+                             Before installing a filter, applications must check that the current version is compatible with the running kernel.  Version numbers are compatible if the major numbers match and the application minor is less than or equal to the kernel minor.  The kernel version number is returned in the following structure:
+
+                             struct bpf_version {
+                                  u_short bv_major;
+                                  u_short bv_minor;
+                             };
+
+                             The current version numbers are given by BPF_MAJOR_VERSION and BPF_MINOR_VERSION from <net/bpf.h>.  An incompatible filter may result in undefined behavior (most likely, an error returned by ioctl() or haphazard packet matching).
+
+              BIOCSHDRCMPLT
+
+              BIOCGHDRCMPLT  (u_int) Sets or gets the status of the ``header complete'' flag.  Set to zero if the link level source address should be filled in automatically by the interface output routine.  Set to one if the link level source address will be written, as provided, to the wire.  This flag is initialized to zero by default.
+
+              BIOCSSEESENT
+
+              BIOCGSEESENT   (u_int) Sets or gets the flag determining whether locally generated packets on the interface should be returned by BPF.  Set to zero to see only incoming packets on the interface.  Set to one to see packets originating locally and remotely on the interface.  This flag is initialized to one by default.
+
+              BIOCGRSIG      (u_int) Returns the signal that will be sent to a process waiting on the bpf descriptor upon packet reception. The default is SIGIO.
+
+              BIOCSRSIG      (u_int) Sets the signal that should be sent to a process waiting on bpf descriptor upon packet reception. The default is SIGIO.
+
+         
+              STANDARD IOCTLS
+                  bpf now supports several standard ioctl(2)'s which allow the user to do non-blocking I/O to an open file descriptor.
+
+                  FIONREAD     (int) Returns the number of bytes that are immediately available for reading.
+
+                  SIOCGIFADDR  (struct ifreq) Returns the address associated with the interface.
+
+
+         BPF HEADER
+             One of the following structures is prepended to each packet returned by read(2) or via a zero-copy buffer:
+
+             struct bpf_xhdr {
+                 struct bpf_ts   bh_tstamp;        /* time stamp */
+                 uint32_t        bh_caplen;        /* length of captured portion */
+                 uint32_t        bh_datalen;       /* original length of packet */
+                 u_short         bh_hdrlen;        /* length of bpf header (this struct plus alignment padding) */
+             };
+
+             struct bpf_hdr {
+                 struct timeval  bh_tstamp;        /* time stamp */
+                 uint32_t        bh_caplen;        /* length of captured portion */
+                 uint32_t        bh_datalen;       /* original length of packet */
+                 u_short         bh_hdrlen;        /* length of bpf header (this struct plus alignment padding) */
+             };
+
+              The fields, whose values are stored in host order,    and are:
+
+              bh_tstamp     The time at which the packet was processed by the packet filter.
+              bh_caplen     The length of the captured portion of the packet. This is the minimum of the truncation amount specified by the filter and the length of the packet.
+              bh_datalen     The length of the packet off the wire. This value is independent of the    truncation amount specified by the filter.
+              bh_hdrlen     The length of the bpf header, which may not be equal to sizeof(struct bpf_xhdr) or sizeof(struct bpf_hdr).
+
+              The bh_hdrlen field exists to account for padding between the header and the link level protocol. The purpose here is to guarantee proper alignment of the packet data structures, which is required on alignment sensitive architectures and improves performance on many other architectures. The packet filter insures that the bpf_hdr and the network layer header will be word aligned. Suitable precautions must be taken when accessing the link layer protocol fields on alignment restricted machines. (This isn't a problem on an Ethernet, since the type field is a short falling on an even offset, and the addresses are probably accessed in a bytewise fashion).
+
+              Additionally, individual packets are padded so that each starts on a word boundary. This requires that an application has some knowledge of how to get from packet to packet. The macro BPF_WORDALIGN is defined in <net/bpf.h> to facilitate this process. It rounds up its argu- ment to the nearest word aligned value (where a word is BPF_ALIGNMENT bytes wide).
+
+              For example, if `p' points to the start of a packet, this expression will advance it to the next packet:  p = (char *)p + BPF_WORDALIGN(p->bh_hdrlen + p->bh_caplen)
+
+              For the alignment mechanisms to work properly, the buffer passed to read(2) must itself be word aligned. The malloc(3) function will always return an aligned buffer.
+
+
+         
+         
+         see also:
+         https://github.com/bpk-t/packet_capture
+         https://github.com/google/gopacket/blob/master/bsdbpf/bsd_bpf_sniffer.go
+         https://www.freebsd.org/cgi/man.cgi?bpf(4)
+ */
+        
         return nil
     }
 
     public func nextPacket() -> (Date, Data)
     {
+        // read packet from bpf device
+        // use the timestamp from bpf header for Date
+        // strip off bpf header and use as Data
+        // return Date & Data
+        
+        
         return (Date(), Data())
     }
 }
