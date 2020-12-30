@@ -15,10 +15,10 @@ final class PacketCaptureBPFTests: XCTestCase {
     func testInitBPF() {
         let bpfDevice = CaptureDevice(interface: "en0")
         
-        bpfDevice?.nextPacket()
-        bpfDevice?.nextPacket()
-        bpfDevice?.nextPacket()
-        bpfDevice?.nextPacket()
+        for i in 0...100{
+            print("Read # \(i)")
+            bpfDevice?.nextPacket()
+        }
         
     }
     
