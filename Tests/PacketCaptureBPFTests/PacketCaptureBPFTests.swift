@@ -11,4 +11,17 @@ final class PacketCaptureBPFTests: XCTestCase {
     static var allTests = [
         ("testExample", testExample),
     ]
+    
+    func testInitBPF() {
+        let bpfDevice = CaptureDevice(interface: "en0")
+        
+        bpfDevice?.nextPacket()
+        bpfDevice?.nextPacket()
+        bpfDevice?.nextPacket()
+        bpfDevice?.nextPacket()
+        
+    }
+    
+    
+    
 }

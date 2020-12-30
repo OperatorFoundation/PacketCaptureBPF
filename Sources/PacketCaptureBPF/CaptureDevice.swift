@@ -9,12 +9,43 @@ import Foundation
 import PacketStream
 import Datable
 
+//magic values, to retrieve C MACRO values see PacketCaptureBPF/getMagicValues/main.c
+let BIOCGBLEN: UInt = 1074020966
+let BIOCSBLEN: UInt = 3221504614
+let BIOCGDLT: UInt = 1074020970
+let BIOCGDLTLIST: UInt = 3222028921
+let BIOCSDLT: UInt = 2147762808
+let BIOCPROMISC: UInt = 536887913
+let BIOCFLUSH: UInt = 536887912
+let BIOCSETIF: UInt = 2149597804
+let BIOCSRTIMEOUT: UInt = 2148549229
+let BIOCGRTIMEOUT: UInt = 1074807406
+let BIOCGSTATS: UInt = 1074283119
+let BIOCIMMEDIATE: UInt = 2147762800
+let BIOCSETF: UInt = 2148549223
+let BIOCSETFNR: UInt = 2148549246
+let BIOCVERSION: UInt = 1074020977
+let BIOCSHDRCMPLT: UInt = 2147762805
+let BIOCSSEESENT: UInt = 2147762807
+let BIOCGSEESENT: UInt = 1074020982
+let BIOCGRSIG: UInt = 1074020978
+let BIOCSRSIG: UInt = 2147762803
+let SIGIO: UInt = 23
+let FIONREAD: UInt = 1074030207
+let SIOCGIFADDR: UInt = 3223349537
 
 
 public class CaptureDevice: PacketStream
 {
+    
+    
+    
     // add function to close things and tidy up when finished
     // add fd device to read packets from
+    
+    var fd_bpf: Int32 = 0
+    var buffer_size: UInt = 4096  // size may need to be adjusted, libpcap has a routine to automatically size the buffer apropriately
+    var buffer = [UInt8](repeating:0, count: Int(4096))
     
     public init?(interface: String)
     {
@@ -23,13 +54,64 @@ public class CaptureDevice: PacketStream
         
         // accept an interface name
         // does the interface exist and is it up
+        var if_req = ifreq()
+        
+        guard let interfaceNameArray = interface.data.array(of: Int8.self) else
+        {
+            return nil
+        }
+        
+        let ifr_name: [Int8] = paddedArray(source: interfaceNameArray, targetSize: 16, padValue: 0)
+        
+        if_req.ifr_name = (ifr_name[0], ifr_name[1], ifr_name[2], ifr_name[3], ifr_name[4], ifr_name[5], ifr_name[6], ifr_name[7], ifr_name[8], ifr_name[9], ifr_name[10], ifr_name[11], ifr_name[12], ifr_name[13], ifr_name[14], ifr_name[15])
+        print("interface name defined")
+
         // find next available/free bpf device
         // open bpf device
-        // set buffer size
-        // bind interface to the bpf device
-        // enable promiscious mode
-        // return/struct the bpf device fd so that it can be used in nextPacket()
+        var fd: Int32 = -1
+        for i in 0...99 {
+            let dev: String = "/dev/bpf" + i.string
+            fd = open(dev, O_RDWR)
+            if fd != -1 {
+                self.fd_bpf = fd
+                print("Our bpf device is: \(dev)")
+                print("bpf fd is: \(fd_bpf)")
+                break
+            }
+        }
         
+        if fd == -1
+        {
+            return nil
+        }
+        
+        // set buffer size
+        
+        guard Int(ioctl(self.fd_bpf, BIOCSBLEN, &self.buffer_size)) == 0 else
+        {
+            return nil
+        }
+        print("buffer size set")
+        
+        
+        // bind interface to the bpf device
+        guard Int(ioctl(self.fd_bpf, BIOCSETIF, &if_req)) == 0 else
+        {
+            return nil
+        }
+        print("bound interface to bpf")
+        
+        // enable promiscious mode
+        // ioctl(fd, BIOCPROMISC, NULL), not sure if NULL is the same as 0, nor how to do a null pointer
+        guard Int( ioctl(self.fd_bpf, BIOCPROMISC, 0 )) == 0 else
+        {
+            return nil
+        }
+        print("enabled promiscious mode")
+        
+        // return/struct the bpf device fd so that it can be used in nextPacket()
+        print("reached end of init")
+        return
         
         
         
@@ -275,6 +357,13 @@ public class CaptureDevice: PacketStream
          https://github.com/bpk-t/packet_capture
          https://github.com/google/gopacket/blob/master/bsdbpf/bsd_bpf_sniffer.go
          https://www.freebsd.org/cgi/man.cgi?bpf(4)
+         https://www.tcpdump.org
+         https://www.tcpdump.org/papers/bpf-usenix93.pdf
+         
+         go:
+         https://medium.com/@cjoudrey/capturing-http-packets-the-hard-way-b9c799bfb6
+         https://github.com/google/gopacket/blob/master/bsdbpf/bsd_bpf_sniffer.go
+         
  */
         
         return nil
@@ -288,6 +377,42 @@ public class CaptureDevice: PacketStream
         // return Date & Data
         
         
+        //if ((len = read(sniffer->fd, sniffer->buffer, sniffer->buf_len)) == -1){
+        
+//        guard Int( ioctl(fd, BIOCPROMISC, 0 )) == 0 else
+//        {
+//            return nil
+//        }
+        print("nextPacket")
+        let len = read(self.fd_bpf, &self.buffer, Int(self.buffer_size) )
+        
+        if len > 0
+        {
+            print(self.buffer)
+        }
+        
         return (Date(), Data())
     }
+}
+
+
+
+
+func paddedArray(source: [Int8], targetSize: Int, padValue: Int8) -> [Int8]
+{
+    var result: [Int8] = []
+//        result.append(padValue)
+//        result.append(padValue)
+//        result.append(Int8(0))
+    for item in source
+    {
+        result.append(item)
+    }
+    
+    for _ in result.count..<targetSize
+    {
+        result.append(padValue)
+    }
+    
+    return result
 }
