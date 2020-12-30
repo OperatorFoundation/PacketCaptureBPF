@@ -17,7 +17,7 @@ let BPF_MAXBUFSIZE: UInt = 524288
 let BPF_MAXINSNS: UInt = 512
 let BPF_ALIGNMENT: UInt = 4
 //#define BPF_WORDALIGN(x) (((x)+(BPF_ALIGNMENT-1))&~(BPF_ALIGNMENT-1))
-// BPF_WORDALIGN(63) = 84
+// BPF_WORDALIGN(81) = 84
 let BIOCGBLEN: UInt = 1074020966
 let BIOCSBLEN: UInt = 3221504614
 let BIOCGDLT: UInt = 1074020970
@@ -43,20 +43,13 @@ let FIONREAD: UInt = 1074030207
 let SIOCGIFADDR: UInt = 3223349537
 
 
-
-
-
-
 public class CaptureDevice: PacketStream
 {
-    // add function to close things and tidy up when finished
-    
     var fd_bpf: Int32 = 0
-    var buffer_size: UInt = 8192  // size may need to be adjusted, libpcap has a routine to automatically size the buffer apropriately
+    var buffer_size: UInt = 8192  // 8192 seems to work ok, but size may need to be adjusted, libpcap has a routine to automatically size the buffer apropriately
     var buffer = [UInt8](repeating:0, count: Int(8192))
-    //var buffer = Data(count: 4096)
     let packets = Queue<(Date, Data)>()
-
+    
     var if_req = ifreq()
     var capturing: Bool = false
     
@@ -74,7 +67,7 @@ public class CaptureDevice: PacketStream
         let ifr_name: [Int8] = paddedArray(source: interfaceNameArray, targetSize: 16, padValue: 0)
         
         if_req.ifr_name = (ifr_name[0], ifr_name[1], ifr_name[2], ifr_name[3], ifr_name[4], ifr_name[5], ifr_name[6], ifr_name[7], ifr_name[8], ifr_name[9], ifr_name[10], ifr_name[11], ifr_name[12], ifr_name[13], ifr_name[14], ifr_name[15])
-        print("interface name defined")
+        //print("interface name defined")
         
         // find next available/free bpf device
         // open bpf device
@@ -84,8 +77,8 @@ public class CaptureDevice: PacketStream
             fd = open(dev, O_RDWR)
             if fd != -1 {
                 self.fd_bpf = fd
-                print("Our bpf device is: \(dev)")
-                print("bpf fd is: \(fd_bpf)")
+                //print("Our bpf device is: \(dev)")
+                //print("bpf fd is: \(fd_bpf)")
                 break
             }
         }
@@ -96,7 +89,7 @@ public class CaptureDevice: PacketStream
         }
         
         // return/struct the bpf device fd so that it can be used in nextPacket()
-        print("reached end of init")
+        //print("reached end of init")
         //return
         
     }
@@ -116,14 +109,14 @@ public class CaptureDevice: PacketStream
         {
             throw BPFerror.couldNotSetBufferSize
         }
-        print("buffer size set")
+        //print("buffer size set")
         
         // bind interface to the bpf device
         guard Int(ioctl(self.fd_bpf, BIOCSETIF, &if_req)) == 0 else
         {
             throw BPFerror.couldNotBindInterfaceToBPF
         }
-        print("bound interface to bpf")
+        //print("bound interface to bpf")
         
         // enable promiscious mode
         // ioctl(fd, BIOCPROMISC, NULL)
@@ -131,7 +124,7 @@ public class CaptureDevice: PacketStream
         {
             throw BPFerror.couldNotEnablePromisciousMode
         }
-        print("enabled promiscious mode")
+        //print("enabled promiscious mode")
         
     }
     
@@ -143,10 +136,6 @@ public class CaptureDevice: PacketStream
             throw BPFerror.couldNotCloseBPFFileHandle
         }
     }
-    
-
-    
-    
     
     
     public func nextCaptureResult() -> CaptureResult?
@@ -160,9 +149,9 @@ public class CaptureDevice: PacketStream
         };
         
         var bpf_stat = bpf_stat_struct(bs_recv: 0, bs_drop: 0)
-
+        
         _ = ioctl(self.fd_bpf, BIOCGSTATS, &bpf_stat)
-        print("bpf_stat: \(bpf_stat)")
+        //print("bpf_stat: \(bpf_stat)")
         
         let droppedPackets = Int(bpf_stat.bs_drop)
         
@@ -175,6 +164,7 @@ public class CaptureDevice: PacketStream
             return nil
         }
         
+        // keep only the bytes that were read, throw out the extra bytes in the buffer
         let lenAligned = (((UInt32(len)) + (UInt32(BPF_ALIGNMENT) - 1)) & (~(UInt32(BPF_ALIGNMENT) - 1)))
         let buffData = Data(self.buffer).subdata(in: 0..<Int(lenAligned))
         
@@ -196,13 +186,12 @@ public class CaptureDevice: PacketStream
                 DatableConfig.endianess = .little
                 guard let tv_sec_bits = bits.unpack(bytes: 4) else
                 {
-                    print("ERROR at sec unpack")
+                    //print("ERROR at sec unpack")
                     return nil
                 }
-                
                 guard let tv_sec = tv_sec_bits.uint32 else
                 {
-                    print("ERROR at sec uint32")
+                    //print("ERROR at sec uint32")
                     return nil
                 }
                 //print("time, tv_sec: \(tv_sec)")
@@ -210,13 +199,12 @@ public class CaptureDevice: PacketStream
                 //get the microseconds
                 guard let tv_usec_bits = bits.unpack(bytes: 4) else
                 {
-                    print("ERROR at usec unpack")
+                    //print("ERROR at usec unpack")
                     return nil
                 }
-                
                 guard let tv_usec = tv_usec_bits.uint32 else
                 {
-                    print("ERROR at usec uint32")
+                    //print("ERROR at usec uint32")
                     return nil
                 }
                 //print("time, tv_usec: \(tv_usec)")
@@ -230,13 +218,12 @@ public class CaptureDevice: PacketStream
                 // get the capture portion length, 4 bytes uint32
                 guard let bh_caplen_bits = bits.unpack(bytes: 4) else
                 {
-                    print("ERROR at cap len unpaack")
+                    //print("ERROR at cap len unpaack")
                     return nil
                 }
-                
                 guard let bh_caplen = bh_caplen_bits.uint32 else
                 {
-                    print("ERROR at cap len uint32")
+                    //print("ERROR at cap len uint32")
                     return nil
                 }
                 //print("bh_caplen: \(bh_caplen)")
@@ -245,13 +232,12 @@ public class CaptureDevice: PacketStream
                 // get the original packet length, 4 bytes uint32
                 guard let bh_datalen_bits = bits.unpack(bytes: 4) else
                 {
-                    print("ERROR at data len unpack")
+                    //print("ERROR at data len unpack")
                     return nil
                 }
-                
                 guard let bh_datalen = bh_datalen_bits.uint32 else
                 {
-                    print("ERROR at data len uint32")
+                    //print("ERROR at data len uint32")
                     return nil
                 }
                 //print("bh_datalen: \(bh_datalen)")
@@ -260,13 +246,12 @@ public class CaptureDevice: PacketStream
                 // get the bpf header length, 2 bytes uint16 or unsigned short
                 guard let bh_hdrlen_bits = bits.unpack(bytes: 2) else
                 {
-                    print("ERROR at header len unpack")
+                    //print("ERROR at header len unpack")
                     return nil
                 }
-                
                 guard let bh_hdrlen = bh_hdrlen_bits.uint16 else
                 {
-                    print("ERROR at header len uint16")
+                    //print("ERROR at header len uint16")
                     return nil
                 }
                 //print("bh_hdrlen: \(bh_hdrlen)")
@@ -280,7 +265,7 @@ public class CaptureDevice: PacketStream
                 
                 guard let packet = bits.unpack(bytes: Int(bytesToRead)) else
                 {
-                    print("ERROR at packet unpack")
+                    //print("ERROR at packet unpack")
                     return nil
                 }
                 
@@ -297,13 +282,9 @@ public class CaptureDevice: PacketStream
                 
             } //end of while bits.count > 0
         } //end of if len > 0
-
+        
         return CaptureResult(packets:packets, dropped:droppedPackets)
     }
-    
-
-    
-    
 }
 
 
@@ -312,9 +293,6 @@ public class CaptureDevice: PacketStream
 func paddedArray(source: [Int8], targetSize: Int, padValue: Int8) -> [Int8]
 {
     var result: [Int8] = []
-    //        result.append(padValue)
-    //        result.append(padValue)
-    //        result.append(Int8(0))
     for item in source
     {
         result.append(item)
@@ -329,7 +307,7 @@ func paddedArray(source: [Int8], targetSize: Int, padValue: Int8) -> [Int8]
 }
 
 
-public func printDataBytes(bytes: Data, hexDumpFormat: Bool, seperator: String, decimal: Bool, enablePrinting: Bool = true) -> String
+func printDataBytes(bytes: Data, hexDumpFormat: Bool, seperator: String, decimal: Bool, enablePrinting: Bool = true) -> String
 {
     var returnString: String = ""
     if hexDumpFormat
