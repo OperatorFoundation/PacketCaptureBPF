@@ -19,6 +19,11 @@ int main(void)
     // Where A2 is the macro name
     
     printf("Hello Operator\n");
+    printf("let BPF_MINBUFSIZE: UInt = %lu\n", BPF_MINBUFSIZE);
+    printf("let BPF_MAXBUFSIZE: UInt = %lu\n", BPF_MAXBUFSIZE);
+    printf("let BPF_MAXINSNS: UInt = %lu\n", BPF_MAXINSNS);
+    printf("let BPF_ALIGNMENT: UInt = %lu\n", BPF_ALIGNMENT);
+    printf("// BPF_WORDALIGN(63) = %lu\n", BPF_WORDALIGN(63+18));
     printf("let BIOCGBLEN: UInt = %lu\n", BIOCGBLEN);
     printf("let BIOCSBLEN: UInt = %lu\n", BIOCSBLEN);
     printf("let BIOCGDLT: UInt = %lu\n", BIOCGDLT);

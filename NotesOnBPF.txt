@@ -249,3 +249,116 @@
          https://github.com/google/gopacket/blob/master/bsdbpf/bsd_bpf_sniffer.go
          
  */
+
+
+
+        //info->bpf_hdr = (struct bpf_hdr*)((long)sniffer->buffer + (long)sniffer->read_bytes_consumed);
+        //info->data = sniffer->buffer + (long)sniffer->read_bytes_consumed + info->bpf_hdr->bh_hdrlen;
+        
+        /*
+         #if defined(__LP64__)
+         #include <sys/_types/_timeval32.h>
+         
+         #define BPF_TIMEVAL timeval32
+         #else
+         #define BPF_TIMEVAL timeval
+         #endif /* __LP64__ */
+         
+         struct bpf_hdr {
+         struct BPF_TIMEVAL bh_tstamp;   /* time stamp */
+         bpf_u_int32     bh_caplen;      /* length of captured portion */
+         bpf_u_int32     bh_datalen;     /* original length of packet */
+         u_short         bh_hdrlen;      /* length of bpf header (this struct
+         *  plus alignment padding) */
+         };
+         
+         timestamp-secs, 32 bits, 4 bytes, 1-4
+         timestamp-usecs, 32 bits, 4 bytes, 5-8
+         capturePortionLength, 32 bits, 4 bytes, 9-12
+         originalPacketLength, 32 bits, 4 bytes, 13-16
+         headerLength 16bits, 2 bytes, 17-18
+         
+         struct timeval {
+         long tv_sec;                /* seconds */
+         long tv_usec;               /* microseconds */
+         };
+         
+         _STRUCT_TIMEVAL32
+         {
+         __int32_t               tv_sec;         /* seconds */
+         __int32_t               tv_usec;        /* and microseconds */
+         };
+         */
+         
+         
+         
+         
+         
+                 // use the timestamp from bpf header for Date
+        
+        // return Date & Data
+        // detect dropped packets
+        /*
+         BIOCGSTATS     (struct bpf_stat) Returns the following structure of packet statistics:
+         
+         struct bpf_stat {
+             u_int bs_recv;    /* number of packets received */
+             u_int bs_drop;    /* number of packets dropped */
+         };
+         
+         The fields are:
+         
+         bs_recv the number of packets received by the descriptor since opened or reset (including any buffered since the last read call); and
+         
+         bs_drop the number of packets which were accepted by the filter but dropped by the kernel because of buffer overflows (i.e., the application's reads aren't keeping up with the packet traffic).
+         
+         FROM libpcap, pcap-bpf.c
+             static int
+             pcap_stats_bpf(pcap_t *p, struct pcap_stat *ps)
+             {
+                 struct bpf_stat s;
+
+                 /*
+                  * "ps_recv" counts packets handed to the filter, not packets
+                  * that passed the filter.  This includes packets later dropped
+                  * because we ran out of buffer space.
+                  *
+                  * "ps_drop" counts packets dropped inside the BPF device
+                  * because we ran out of buffer space.  It doesn't count
+                  * packets dropped by the interface driver.  It counts
+                  * only packets that passed the filter.
+                  *
+                  * Both statistics include packets not yet read from the kernel
+                  * by libpcap, and thus not yet seen by the application.
+                  */
+                 if (ioctl(p->fd, BIOCGSTATS, (caddr_t)&s) < 0) {
+                     pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+                         errno, "BIOCGSTATS");
+                     return (PCAP_ERROR);
+                 }
+
+                 ps->ps_recv = s.bs_recv;
+                 ps->ps_drop = s.bs_drop;
+                 ps->ps_ifdrop = 0;
+                 return (0);
+             }
+         
+         
+         
+         FROM <sys/_types/_caddr_t.h>:
+             #ifndef _CADDR_T
+             #define _CADDR_T
+             typedef char *          caddr_t;
+             #endif /* _CADDR_T */
+         
+         
+         
+         */
+
+
+
+                // get the data portion of the packet using the capture portion length
+                //(((x)+(BPF_ALIGNMENT-1))&~(BPF_ALIGNMENT-1))
+                //(   (  (x)+(BPF_ALIGNMENT-1)  )  &  ~(BPF_ALIGNMENT-1)   )
+                //BPF_ALIGNMENT
+                //let bytesToRead = (UInt32(bh_hdrlen) + bh_caplen) % UInt32(BPF_ALIGNMENT)

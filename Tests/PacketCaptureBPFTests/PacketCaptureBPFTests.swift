@@ -13,11 +13,51 @@ final class PacketCaptureBPFTests: XCTestCase {
     ]
     
     func testInitBPF() {
-        let bpfDevice = CaptureDevice(interface: "en0")
+        guard let bpfDevice = CaptureDevice(interface: "en0") else
+        {
+            XCTFail()
+            return
+        }
+        
+        do {
+            try bpfDevice.startCapture()
+        } catch (let startError){
+            print("error: \(startError)")
+            XCTFail()
+            return
+        }
+        
         
         for i in 0...100{
             print("Read # \(i)")
-            bpfDevice?.nextPacket()
+            guard let captureResult = bpfDevice.nextCaptureResult() else
+            {
+                XCTFail()
+                return
+            }
+            
+            let droppedPackets = captureResult.dropped
+            print("dropped packets: \(droppedPackets)\n")
+            if droppedPackets > 0
+            {
+                XCTFail()
+                return
+            }
+            
+            let packets = captureResult.packets
+
+            print("packet count: \(packets.count)")
+//            print("packets:")
+//            var packetCount = 0
+//            for packet in packets
+//            {
+//                packetCount += 1
+//                print("Packet #: \(packetCount)")
+//                print("timestamp: \(packet.timestamp)")
+//                print("bytes in packet: \(packet.payload.count)")
+//            }
+            
+            
         }
         
     }

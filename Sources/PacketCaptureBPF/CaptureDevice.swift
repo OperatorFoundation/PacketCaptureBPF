@@ -9,8 +9,15 @@ import Foundation
 import PacketStream
 import Datable
 import Bits
+import SwiftQueue
 
 //magic values, to retrieve C MACRO values see PacketCaptureBPF/getMagicValues/main.c
+let BPF_MINBUFSIZE: UInt = 32
+let BPF_MAXBUFSIZE: UInt = 524288
+let BPF_MAXINSNS: UInt = 512
+let BPF_ALIGNMENT: UInt = 4
+//#define BPF_WORDALIGN(x) (((x)+(BPF_ALIGNMENT-1))&~(BPF_ALIGNMENT-1))
+// BPF_WORDALIGN(63) = 84
 let BIOCGBLEN: UInt = 1074020966
 let BIOCSBLEN: UInt = 3221504614
 let BIOCGDLT: UInt = 1074020970
@@ -39,21 +46,25 @@ let SIOCGIFADDR: UInt = 3223349537
 
 
 
+
 public class CaptureDevice: PacketStream
 {
     // add function to close things and tidy up when finished
     
     var fd_bpf: Int32 = 0
-    var buffer_size: UInt = 4096  // size may need to be adjusted, libpcap has a routine to automatically size the buffer apropriately
-    var buffer = [UInt8](repeating:0, count: Int(4096))
+    var buffer_size: UInt = 8192  // size may need to be adjusted, libpcap has a routine to automatically size the buffer apropriately
+    var buffer = [UInt8](repeating:0, count: Int(8192))
     //var buffer = Data(count: 4096)
+    let packets = Queue<(Date, Data)>()
+
+    var if_req = ifreq()
+    var capturing: Bool = false
     
     public init?(interface: String)
     {
         
         // accept an interface name
         // does the interface exist and is it up
-        var if_req = ifreq()
         
         guard let interfaceNameArray = interface.data.array(of: Int8.self) else
         {
@@ -84,18 +95,33 @@ public class CaptureDevice: PacketStream
             return nil
         }
         
+        // return/struct the bpf device fd so that it can be used in nextPacket()
+        print("reached end of init")
+        //return
+        
+    }
+    
+    public enum BPFerror: Error
+    {
+        case couldNotSetBufferSize
+        case couldNotBindInterfaceToBPF
+        case couldNotEnablePromisciousMode
+        case couldNotCloseBPFFileHandle
+    }
+    
+    public func startCapture() throws {
+        self.capturing = true
         // set buffer size
         guard Int(ioctl(self.fd_bpf, BIOCSBLEN, &self.buffer_size)) == 0 else
         {
-            return nil
+            throw BPFerror.couldNotSetBufferSize
         }
         print("buffer size set")
-        
         
         // bind interface to the bpf device
         guard Int(ioctl(self.fd_bpf, BIOCSETIF, &if_req)) == 0 else
         {
-            return nil
+            throw BPFerror.couldNotBindInterfaceToBPF
         }
         print("bound interface to bpf")
         
@@ -103,56 +129,66 @@ public class CaptureDevice: PacketStream
         // ioctl(fd, BIOCPROMISC, NULL)
         guard Int( ioctl(self.fd_bpf, BIOCPROMISC, 0 )) == 0 else
         {
-            return nil
+            throw BPFerror.couldNotEnablePromisciousMode
         }
         print("enabled promiscious mode")
         
-        // return/struct the bpf device fd so that it can be used in nextPacket()
-        print("reached end of init")
-        return
-        
     }
     
-    public func nextPacket() -> (Date, Data)
+    
+    public func stopCapture() throws {
+        self.capturing = false
+        guard Int(close(self.fd_bpf)) == 0 else
+        {
+            throw BPFerror.couldNotCloseBPFFileHandle
+        }
+    }
+    
+
+    
+    
+    
+    
+    public func nextCaptureResult() -> CaptureResult?
     {
+        var packets: [TimestampedPacket] = [TimestampedPacket]()
         
-        // use the timestamp from bpf header for Date
+        //has the buffer overflowed?
+        struct bpf_stat_struct {
+            var bs_recv: UInt32   /* number of packets received */
+            var bs_drop: UInt32  /* number of packets dropped */
+        };
         
-        // return Date & Data
-        // detect dropped packets
-        /*
-         BIOCGSTATS     (struct bpf_stat) Returns the following structure of packet statistics:
-         
-         struct bpf_stat {
-         u_int bs_recv;    /* number of packets received */
-         u_int bs_drop;    /* number of packets dropped */
-         };
-         
-         The fields are:
-         
-         bs_recv the number of packets received by the descriptor since opened or reset (including any buffered since the last read call); and
-         
-         bs_drop the number of packets which were accepted by the filter but dropped by the kernel because of buffer overflows (i.e., the application's reads aren't keeping up with the packet traffic).
-         */
+        var bpf_stat = bpf_stat_struct(bs_recv: 0, bs_drop: 0)
+
+        _ = ioctl(self.fd_bpf, BIOCGSTATS, &bpf_stat)
+        print("bpf_stat: \(bpf_stat)")
+        
+        let droppedPackets = Int(bpf_stat.bs_drop)
         
         
         // read from bpf device into buffer
         let len = read(self.fd_bpf, &self.buffer, Int(self.buffer_size) )
         
-        let buffData = Data(self.buffer)
+        guard len != -1 else
+        {
+            return nil
+        }
         
-        
+        let lenAligned = (((UInt32(len)) + (UInt32(BPF_ALIGNMENT) - 1)) & (~(UInt32(BPF_ALIGNMENT) - 1)))
+        let buffData = Data(self.buffer).subdata(in: 0..<Int(lenAligned))
         
         if len > 0
         {
-            print("length read: \(len)")
+            //print("length read: \(len)")
             
-            print("bpf read bytes:")
-            printDataBytes(bytes: buffData, hexDumpFormat: false, seperator: " ", decimal: false)
+            //print("bpf read bytes:")
+            //printDataBytes(bytes: buffData, hexDumpFormat: false, seperator: " ", decimal: false)
             
             
             //parse buffer into packets by looking at bpf header
             var bits = Bits(data: buffData)
+            //print("bits.count: \(bits.count/8)")
             
             while bits.count > 0
             {
@@ -160,158 +196,114 @@ public class CaptureDevice: PacketStream
                 DatableConfig.endianess = .little
                 guard let tv_sec_bits = bits.unpack(bytes: 4) else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at sec unpack")
+                    return nil
                 }
                 
                 guard let tv_sec = tv_sec_bits.uint32 else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at sec uint32")
+                    return nil
                 }
-                print("time, tv_sec: \(tv_sec)")
+                //print("time, tv_sec: \(tv_sec)")
                 
                 //get the microseconds
                 guard let tv_usec_bits = bits.unpack(bytes: 4) else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at usec unpack")
+                    return nil
                 }
                 
                 guard let tv_usec = tv_usec_bits.uint32 else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at usec uint32")
+                    return nil
                 }
-                print("time, tv_usec: \(tv_usec)")
+                //print("time, tv_usec: \(tv_usec)")
                 
+                let seconds = UInt64(tv_sec) //convert seconds to microsecs
+                let microSecs = UInt64(tv_usec)
+                let totalMicroSecs = seconds * UInt64(1e6) + microSecs
+                let totalSeconds = totalMicroSecs / 1000000
+                let date = Date(timeIntervalSince1970: TimeInterval(totalSeconds))
                 
                 // get the capture portion length, 4 bytes uint32
                 guard let bh_caplen_bits = bits.unpack(bytes: 4) else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at cap len unpaack")
+                    return nil
                 }
                 
                 guard let bh_caplen = bh_caplen_bits.uint32 else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at cap len uint32")
+                    return nil
                 }
-                print("bh_caplen: \(bh_caplen)")
+                //print("bh_caplen: \(bh_caplen)")
                 
                 
-                
-                
-
                 // get the original packet length, 4 bytes uint32
                 guard let bh_datalen_bits = bits.unpack(bytes: 4) else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at data len unpack")
+                    return nil
                 }
                 
                 guard let bh_datalen = bh_datalen_bits.uint32 else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at data len uint32")
+                    return nil
                 }
-                print("bh_datalen: \(bh_datalen)")
-                
-                
-                
-                
+                //print("bh_datalen: \(bh_datalen)")
                 
                 
                 // get the bpf header length, 2 bytes uint16 or unsigned short
                 guard let bh_hdrlen_bits = bits.unpack(bytes: 2) else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at header len unpack")
+                    return nil
                 }
                 
                 guard let bh_hdrlen = bh_hdrlen_bits.uint16 else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at header len uint16")
+                    return nil
                 }
-                print("bh_hdrlen: \(bh_hdrlen)")
+                //print("bh_hdrlen: \(bh_hdrlen)")
                 
+                //bpf is byte aligned
+                let bytesToRead = (((UInt32(bh_hdrlen) + bh_caplen) + (UInt32(BPF_ALIGNMENT) - 1)) & (~(UInt32(BPF_ALIGNMENT) - 1))) - UInt32(bh_hdrlen)
+                //print("bytesToRead: \(bytesToRead)")
                 
+                //let padding = bytesToRead - bh_caplen
+                //print("padding: \(padding)")
                 
-                
-                
-                // get the data portion of the packet using the capture portion length
-                guard let packet = bits.unpack(bytes: Int(bh_caplen)) else
+                guard let packet = bits.unpack(bytes: Int(bytesToRead)) else
                 {
-                    print("ERROR")
-                    return (Date(), Data())
+                    print("ERROR at packet unpack")
+                    return nil
                 }
                 
-                print("packet:")
-                _ = printDataBytes(bytes: packet, hexDumpFormat: true, seperator: "", decimal: false)
-                print("")
-            
-            }
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-        }
-        
-        //info->bpf_hdr = (struct bpf_hdr*)((long)sniffer->buffer + (long)sniffer->read_bytes_consumed);
-        //info->data = sniffer->buffer + (long)sniffer->read_bytes_consumed + info->bpf_hdr->bh_hdrlen;
-        
-        /*
-         #if defined(__LP64__)
-         #include <sys/_types/_timeval32.h>
-         
-         #define BPF_TIMEVAL timeval32
-         #else
-         #define BPF_TIMEVAL timeval
-         #endif /* __LP64__ */
-         
-         struct bpf_hdr {
-         struct BPF_TIMEVAL bh_tstamp;   /* time stamp */
-         bpf_u_int32     bh_caplen;      /* length of captured portion */
-         bpf_u_int32     bh_datalen;     /* original length of packet */
-         u_short         bh_hdrlen;      /* length of bpf header (this struct
-         *  plus alignment padding) */
-         };
-         
-         timestamp-secs, 32 bits, 4 bytes, 1-4
-         timestamp-usecs, 32 bits, 4 bytes, 5-8
-         capturePortionLength, 32 bits, 4 bytes, 9-12
-         originalPacketLength, 32 bits, 4 bytes, 13-16
-         headerLength 16bits, 2 bytes, 17-18
-         
-         struct timeval {
-         long tv_sec;                /* seconds */
-         long tv_usec;               /* microseconds */
-         };
-         
-         _STRUCT_TIMEVAL32
-         {
-         __int32_t               tv_sec;         /* seconds */
-         __int32_t               tv_usec;        /* and microseconds */
-         };
-         */
-        
-        
-        
-        
-        return (Date(), Data())
+                //print("packet:")
+                //_ = printDataBytes(bytes: packet, hexDumpFormat: true, seperator: "", decimal: false)
+                //print("")
+                //print("bits.count: \(bits.count/8)")
+                //print("")
+                
+                let data = Data(packet.data[0..<bh_datalen])
+                
+                let timestampedPacket = TimestampedPacket(timestamp: date, payload: data)
+                packets.append(timestampedPacket)
+                
+            } //end of while bits.count > 0
+        } //end of if len > 0
+
+        return CaptureResult(packets:packets, dropped:droppedPackets)
     }
+    
+
+    
+    
 }
 
 
