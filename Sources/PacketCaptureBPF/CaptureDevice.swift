@@ -75,7 +75,7 @@ public class CaptureDevice: PacketStream
         var fd: Int32 = -1
         for i in 0...255 {
             let dev: String = "/dev/bpf" + i.string
-            fd = open(dev, O_RDWR)
+            fd = open(dev, O_RDONLY)
             if fd != -1 {
                 self.fd_bpf = fd
 //                print("* Our bpf device is: \(dev)")
