@@ -73,7 +73,7 @@ public class CaptureDevice: PacketStream
         // find next available/free bpf device
         // open bpf device
         var fd: Int32 = -1
-        for i in 0...99 {
+        for i in 0...255 {
             let dev: String = "/dev/bpf" + i.string
             fd = open(dev, O_RDWR)
             if fd != -1 {
