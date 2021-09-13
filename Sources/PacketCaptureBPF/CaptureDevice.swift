@@ -61,13 +61,14 @@ public class CaptureDevice: PacketStream
         
         guard let interfaceNameArray = interface.data.array(of: Int8.self) else
         {
+            print("* Unable to initialize a CaptureDevice: failed to get the list of interface names from \(interface)")
             return nil
         }
         
         let ifr_name: [Int8] = paddedArray(source: interfaceNameArray, targetSize: 16, padValue: 0)
         
         if_req.ifr_name = (ifr_name[0], ifr_name[1], ifr_name[2], ifr_name[3], ifr_name[4], ifr_name[5], ifr_name[6], ifr_name[7], ifr_name[8], ifr_name[9], ifr_name[10], ifr_name[11], ifr_name[12], ifr_name[13], ifr_name[14], ifr_name[15])
-        //print("interface name defined")
+//        print("* interface name defined")
         
         // find next available/free bpf device
         // open bpf device
@@ -77,14 +78,15 @@ public class CaptureDevice: PacketStream
             fd = open(dev, O_RDWR)
             if fd != -1 {
                 self.fd_bpf = fd
-                //print("Our bpf device is: \(dev)")
-                //print("bpf fd is: \(fd_bpf)")
+//                print("* Our bpf device is: \(dev)")
+//                print("* bpf fd is: \(fd_bpf)")
                 break
             }
         }
         
         if fd == -1
         {
+            print("* Unable to initialize a CaptureDevice: failed to open /dev/bpf from 0 to 99.")
             return nil
         }
         
