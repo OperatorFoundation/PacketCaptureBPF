@@ -75,18 +75,23 @@ public class CaptureDevice: PacketStream
         var fd: Int32 = -1
         for i in 0...255 {
             let dev: String = "/dev/bpf" + i.string
-            fd = open(dev, O_RDONLY)
+            fd = open(dev, O_RDWR)
             if fd != -1 {
                 self.fd_bpf = fd
 //                print("* Our bpf device is: \(dev)")
 //                print("* bpf fd is: \(fd_bpf)")
                 break
             }
+            else
+            {
+                print("* errno: \(Darwin.errno)")
+                print("* \(dev)")
+            }
         }
         
         if fd == -1
         {
-            print("* Unable to initialize a CaptureDevice: failed to open /dev/bpf from 0 to 99.")
+            print("* Unable to initialize a CaptureDevice: failed to open /dev/bpf from 0 to 255.")
             return nil
         }
         
@@ -100,7 +105,7 @@ public class CaptureDevice: PacketStream
     {
         case couldNotSetBufferSize
         case couldNotBindInterfaceToBPF
-        case couldNotEnablePromisciousMode
+        case couldNotEnablePromiscuousMode
         case couldNotCloseBPFFileHandle
     }
     
@@ -124,7 +129,7 @@ public class CaptureDevice: PacketStream
         // ioctl(fd, BIOCPROMISC, NULL)
         guard Int( ioctl(self.fd_bpf, BIOCPROMISC, 0 )) == 0 else
         {
-            throw BPFerror.couldNotEnablePromisciousMode
+            throw BPFerror.couldNotEnablePromiscuousMode
         }
         //print("enabled promiscious mode")
         
