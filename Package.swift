@@ -17,8 +17,8 @@ let package = Package(
         // .package(url: /* package url */, from: "1.0.0"),
         .package(url: "https://github.com/OperatorFoundation/PacketStream.git", from: "0.2.1"),
         .package(url: "https://github.com/OperatorFoundation/Datable.git", from: "3.1.1"),
-        .package(url: "https://github.com/OperatorFoundation/InternetProtocols.git", from: "1.1.1"),
-        .package(url: "https://github.com/OperatorFoundation/Bits.git", from: "1.0.6"),
+        .package(url: "https://github.com/OperatorFoundation/InternetProtocols.git", from: "2.1.1"),
+        .package(url: "https://github.com/OperatorFoundation/Bits.git", from: "2.0.1"),
         .package(url: "https://github.com/OperatorFoundation/SwiftQueue.git", from: "0.1.1"),
     ],
     targets: [
