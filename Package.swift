@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "PacketCaptureBPF",
-    platforms: [.macOS(.v11)],
+    platforms: [.macOS(.v10_15)],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
@@ -16,10 +16,10 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
         .package(url: "https://github.com/OperatorFoundation/PacketStream.git", from: "0.2.1"),
-        .package(url: "https://github.com/OperatorFoundation/Datable.git", from: "3.0.3"),
+        .package(url: "https://github.com/OperatorFoundation/Datable.git", from: "3.1.1"),
         .package(url: "https://github.com/OperatorFoundation/InternetProtocols.git", from: "1.1.1"),
         .package(url: "https://github.com/OperatorFoundation/Bits.git", from: "1.0.6"),
-        .package(url: "https://github.com/OperatorFoundation/SwiftQueue.git", from: "0.0.3"),
+        .package(url: "https://github.com/OperatorFoundation/SwiftQueue.git", from: "0.1.1"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
