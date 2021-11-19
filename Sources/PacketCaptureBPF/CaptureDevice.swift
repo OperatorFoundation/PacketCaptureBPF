@@ -282,8 +282,7 @@ public class CaptureDevice: PacketStream
                 //print("bits.count: \(bits.count/8)")
                 //print("")
                 
-                let data = packet[0..<bh_datalen]
-                    //Data(packet.data[0..<bh_datalen])
+                let data = Data(packet.data[0..<bh_datalen])
                 
                 let timestampedPacket = TimestampedPacket(timestamp: date, payload: data)
                 packets.append(timestampedPacket)
