@@ -1,52 +1,59 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "Bits",
-        "repositoryURL": "https://github.com/OperatorFoundation/Bits.git",
-        "state": {
-          "branch": null,
-          "revision": "e53451b5858a8a2d72f51d3ca22761643adf64d3",
-          "version": "1.0.6"
-        }
-      },
-      {
-        "package": "Datable",
-        "repositoryURL": "https://github.com/OperatorFoundation/Datable.git",
-        "state": {
-          "branch": null,
-          "revision": "808ab1b2c021be3d2950ec2c2894cd48d532d592",
-          "version": "3.0.3"
-        }
-      },
-      {
-        "package": "InternetProtocols",
-        "repositoryURL": "https://github.com/OperatorFoundation/InternetProtocols.git",
-        "state": {
-          "branch": null,
-          "revision": "8bd874cec7172fc441cf639108787725957e82c0",
-          "version": "1.1.1"
-        }
-      },
-      {
-        "package": "PacketStream",
-        "repositoryURL": "https://github.com/OperatorFoundation/PacketStream.git",
-        "state": {
-          "branch": null,
-          "revision": "2340145ec9c547f23aeb0464a3b230f6afaa529b",
-          "version": "0.2.1"
-        }
-      },
-      {
-        "package": "SwiftQueue",
-        "repositoryURL": "https://github.com/OperatorFoundation/SwiftQueue.git",
-        "state": {
-          "branch": null,
-          "revision": "0e5979acbb104516a427bb2bb09debc50ca100b4",
-          "version": "0.0.3"
-        }
+  "pins" : [
+    {
+      "identity" : "bits",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OperatorFoundation/Bits.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "bf60b26441a60f48651b1646e4c348b1b2d0b804"
       }
-    ]
-  },
-  "version": 1
+    },
+    {
+      "identity" : "datable",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OperatorFoundation/Datable.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "86118a922137267780fde547fc0b3cf8cd5a3134"
+      }
+    },
+    {
+      "identity" : "internetprotocols",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OperatorFoundation/InternetProtocols.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "2374b6678d302519af994c5ae265aa8de9465d37"
+      }
+    },
+    {
+      "identity" : "net",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OperatorFoundation/Net.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "c43bf17e1e9a099b89b4ce56768df3c68fbc12e1"
+      }
+    },
+    {
+      "identity" : "packetstream",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OperatorFoundation/PacketStream.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "2340145ec9c547f23aeb0464a3b230f6afaa529b"
+      }
+    },
+    {
+      "identity" : "swiftqueue",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OperatorFoundation/SwiftQueue.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "9f264b7f816b55b5b718f5187aa98c7397d28d81"
+      }
+    }
+  ],
+  "version" : 2
 }
