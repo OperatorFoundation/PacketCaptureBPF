@@ -219,13 +219,13 @@ public class CaptureDevice: PacketStream
                 let seconds = UInt64(tv_sec) //convert seconds to microsecs
                 let microSecs = UInt64(tv_usec)
                 let totalMicroSecs = seconds * UInt64(1e6) + microSecs
-                let totalSeconds = totalMicroSecs / 1000000
+                let totalSeconds: Double = Double(totalMicroSecs) / 1000000
                 let date = Date(timeIntervalSince1970: TimeInterval(totalSeconds))
                 
                 // get the capture portion length, 4 bytes uint32
                 guard let bh_caplen_bits = bits.unpack(bytes: 4) else
                 {
-                    //print("ERROR at cap len unpaack")
+                    //print("ERROR at cap len unpack")
                     return nil
                 }
                 guard let bh_caplen = bh_caplen_bits.uint32 else
