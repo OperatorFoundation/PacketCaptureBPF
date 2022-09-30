@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "PacketCaptureBPF",
-    platforms: [.macOS(.v10_15),
+    platforms: [.macOS(.v12),
                 .iOS(.v15)
                      ],
     products: [
