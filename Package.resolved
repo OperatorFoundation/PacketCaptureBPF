@@ -6,7 +6,7 @@
       "location" : "https://github.com/OperatorFoundation/Bits.git",
       "state" : {
         "branch" : "main",
-        "revision" : "bf60b26441a60f48651b1646e4c348b1b2d0b804"
+        "revision" : "cc7079e1038c1ce7d0093bb02b60cf024d4eb497"
       }
     },
     {
@@ -15,7 +15,7 @@
       "location" : "https://github.com/OperatorFoundation/Datable.git",
       "state" : {
         "branch" : "main",
-        "revision" : "86118a922137267780fde547fc0b3cf8cd5a3134"
+        "revision" : "b896773b244dd11fd66da8bc57c092db418d317d"
       }
     },
     {
@@ -24,7 +24,7 @@
       "location" : "https://github.com/OperatorFoundation/InternetProtocols.git",
       "state" : {
         "branch" : "main",
-        "revision" : "2374b6678d302519af994c5ae265aa8de9465d37"
+        "revision" : "c7d0f9f5a834fac138ed5e800bc25c82789e46d9"
       }
     },
     {
@@ -33,7 +33,7 @@
       "location" : "https://github.com/OperatorFoundation/Net.git",
       "state" : {
         "branch" : "main",
-        "revision" : "c43bf17e1e9a099b89b4ce56768df3c68fbc12e1"
+        "revision" : "20e37b79c01d9b7b8c7c4b6fbf6e16423cfe8425"
       }
     },
     {
@@ -42,7 +42,16 @@
       "location" : "https://github.com/OperatorFoundation/PacketStream.git",
       "state" : {
         "branch" : "main",
-        "revision" : "2340145ec9c547f23aeb0464a3b230f6afaa529b"
+        "revision" : "7916aeea1914fdac7312af542ee7843ef776fb96"
+      }
+    },
+    {
+      "identity" : "swifthextools",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OperatorFoundation/SwiftHexTools.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "3d4b5a925414481ff82fe53b9062560a269c2679"
       }
     },
     {
@@ -51,7 +60,7 @@
       "location" : "https://github.com/OperatorFoundation/SwiftQueue.git",
       "state" : {
         "branch" : "main",
-        "revision" : "9f264b7f816b55b5b718f5187aa98c7397d28d81"
+        "revision" : "5d59db6aa86b7e1b419c027af1a61f2572475538"
       }
     }
   ],
